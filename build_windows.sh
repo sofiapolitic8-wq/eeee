@@ -37,9 +37,10 @@ while IFS= read -r f; do FILES+=("$f"); done < <(find thermite/src app/src \( -n
 compile() {
   local src="$1" obj="$OUT/$(echo "$1" | tr '/' '_').o" extra=() log
   log="$obj.log"
-  case "$src" in glfw/*) extra=(-D_GLFW_WIN32);; esac
   local rc=0
   case "$src" in
+    glfw/*)  # GLFW defines its own Vulkan types: no Vulkan headers / GLFW_INCLUDE_* for it
+      "$CC" "${OPT[@]}" -Iglfw/include -D_GLFW_WIN32 -c "$src" -o "$obj" >"$log" 2>&1 || rc=$? ;;
     *.cpp) "$CXX" "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" >"$log" 2>&1 || rc=$? ;;
     *)     "$CC"  "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" >"$log" 2>&1 || rc=$? ;;
   esac
