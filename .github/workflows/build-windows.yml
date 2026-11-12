@@ -1,0 +1,69 @@
+name: Build Roshan.io (Windows x64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check project files are in the repo root
+        run: |
+          missing=0
+          for p in build_windows.sh glfw/src thermite/src app/src app/res/fonts app/res/shaders/bin app/res/textures; do
+            if [ ! -e "$p" ]; then echo "MISSING: $p  (upload the files from INSIDE the Roshan.io-source folder, to the repo root)"; missing=1; fi
+          done
+          ls app/res/shaders/bin | wc -l
+          [ "$missing" = 0 ]
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-vulkan-headers
+            mingw-w64-x86_64-vulkan-loader
+            zip
+
+      - name: Build roshan-io.exe
+        run: |
+          gcc --version | head -1
+          bash build_windows.sh
+          test -f build/bin/roshan-io.exe
+
+      - name: Package
+        run: |
+          rm -rf dist hd
+          mkdir -p dist/Roshan.io/app/res/textures dist/Roshan.io/app/res/shaders
+          cp build/bin/roshan-io.exe dist/Roshan.io/
+          cp -r app/res/fonts dist/Roshan.io/app/res/fonts
+          cp -r app/res/shaders/bin dist/Roshan.io/app/res/shaders/bin
+          cp app/res/textures/background_lite.png app/res/textures/tex_atlas_lite.png dist/Roshan.io/app/res/textures/
+          cp README.md LICENSE CREDITS.md dist/Roshan.io/ 2>/dev/null || true
+          (cd dist && zip -qr ../Roshan.io-Windows-x64.zip Roshan.io)
+          # optional HD textures (put in app/res/textures, then turn "Lite textures" OFF in Settings)
+          mkdir -p hd/Roshan.io/app/res/textures
+          cp app/res/textures/background_4k.png app/res/textures/tex_atlas_8k.png hd/Roshan.io/app/res/textures/
+          (cd hd && zip -qr ../Roshan.io-HD-textures.zip Roshan.io)
+          ls -la *.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Roshan.io-Windows-x64
+          path: Roshan.io-Windows-x64.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Roshan.io-HD-textures-optional
+          path: Roshan.io-HD-textures.zip
+          if-no-files-found: error

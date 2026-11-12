@@ -1,0 +1,6 @@
+build/
+thermite/res/shaders/bin
+*.dat
+*.ini
+*.cache
+compile_commands.json
