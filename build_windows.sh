@@ -35,13 +35,18 @@ fi
 while IFS= read -r f; do FILES+=("$f"); done < <(find thermite/src app/src \( -name '*.c' -o -name '*.cpp' \) | sort)
 
 compile() {
-  local src="$1" obj="$OUT/$(echo "$1" | tr '/' '_').o" extra=()
+  local src="$1" obj="$OUT/$(echo "$1" | tr '/' '_').o" extra=() log
+  log="$obj.log"
   case "$src" in glfw/*) extra=(-D_GLFW_WIN32);; esac
+  local rc=0
   case "$src" in
-    *.cpp) "$CXX" "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" ;;
-    *)     "$CC"  "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" ;;
+    *.cpp) "$CXX" "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" >"$log" 2>&1 || rc=$? ;;
+    *)     "$CC"  "${OPT[@]}" "${INC[@]}" "${DEFS[@]}" "${extra[@]}" -c "$src" -o "$obj" >"$log" 2>&1 || rc=$? ;;
   esac
-  echo "  compiled $src"
+  if [ "$rc" != 0 ]; then
+    { echo "::group::FAILED to compile $src"; head -n 60 "$log"; echo "::endgroup::"; } >&2
+    return 1
+  fi
 }
 
 echo "Compiling ${#FILES[@]} files with $JOBS jobs..."
@@ -52,7 +57,14 @@ for f in "${FILES[@]}"; do
 done
 fail=0
 for p in "${pids[@]}"; do wait "$p" || fail=1; done
-[ "$fail" = 0 ] || { echo "ERROR: compile failed (see messages above)"; exit 1; }
+if [ "$fail" != 0 ]; then
+  echo "=================== COMPILE ERRORS ==================="
+  for l in "$OUT"/*.log; do
+    if grep -qE "error|Error" "$l"; then echo "--- ${l#$OUT/} ---"; grep -E -B2 -A6 "error" "$l" | head -n 40; fi
+  done
+  echo "======================================================"
+  exit 1
+fi
 
 [ "${COMPILE_ONLY:-0}" = 1 ] && { echo "Compile-only OK"; exit 0; }
 
