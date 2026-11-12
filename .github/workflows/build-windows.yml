@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check project files are in the repo root
+        shell: bash
         run: |
           missing=0
           for p in build_windows.sh glfw/src thermite/src app/src app/res/fonts app/res/shaders/bin app/res/textures; do
