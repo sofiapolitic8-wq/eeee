@@ -70,5 +70,19 @@ fi
 [ "${COMPILE_ONLY:-0}" = 1 ] && { echo "Compile-only OK"; exit 0; }
 
 echo "Linking $EXE ..."
-"$CXX" -O2 -static "$OUT"/*.o -o "$EXE" -lvulkan-1 -lgdi32 -lws2_32 -lm
+# With -static, "-lvulkan-1" only searches libvulkan-1.a and would miss the import library
+# (libvulkan-1.dll.a) or the DLL itself, so we pass the file by path.
+ROOT="$(cygpath -m /mingw64 2>/dev/null || echo /mingw64)"
+VKLIB=""
+for c in "$ROOT/lib/libvulkan-1.dll.a" "$ROOT/lib/libvulkan-1.a" "$ROOT/lib/libvulkan.dll.a" \
+         "$ROOT/x86_64-w64-mingw32/lib/libvulkan-1.dll.a" "$ROOT/bin/vulkan-1.dll"; do
+  if [ -f "$c" ]; then VKLIB="$c"; break; fi
+done
+if [ -z "$VKLIB" ]; then
+  echo "ERROR: Vulkan loader library not found. Files that mention vulkan:"
+  find "$ROOT" -iname '*vulkan*' \( -name '*.a' -o -name '*.dll' \) 2>/dev/null | head -20
+  exit 1
+fi
+echo "Using Vulkan loader: $VKLIB"
+"$CXX" -O2 -static "$OUT"/*.o -o "$EXE" "$VKLIB" -lgdi32 -lws2_32 -lm
 echo "BUILD OK: $EXE ($(du -h "$EXE" | cut -f1))"
