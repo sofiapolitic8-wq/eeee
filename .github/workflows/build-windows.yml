@@ -15,16 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check project files are in the repo root
-        shell: bash
-        run: |
-          missing=0
-          for p in build_windows.sh glfw/src thermite/src app/src app/res/fonts app/res/shaders/bin app/res/textures; do
-            if [ ! -e "$p" ]; then echo "MISSING: $p  (upload the files from INSIDE the Roshan.io-source folder, to the repo root)"; missing=1; fi
-          done
-          ls app/res/shaders/bin | wc -l
-          [ "$missing" = 0 ]
-
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
